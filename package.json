@@ -1,0 +1,17 @@
+{
+  "name": "simple-drive",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter api dev & pnpm --filter ui dev",
+    "build": "pnpm --filter api build && pnpm --filter ui build",
+    "test": "pnpm --filter api test"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

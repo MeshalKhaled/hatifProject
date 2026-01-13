@@ -1,0 +1,138 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: simpledrive
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb myminio/blobs --ignore-existing;
+      exit 0;
+      "
+
+  ftp:
+    image: stilliard/pure-ftpd:latest
+    ports:
+      - "21:21"
+      - "30000-30009:30000-30009"
+    environment:
+      PUBLICHOST: localhost
+      FTP_USER_NAME: ftpuser
+      FTP_USER_PASS: ftppass
+      FTP_USER_HOME: /home/ftpuser
+    volumes:
+      - ftp_data:/home/ftpuser
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "21"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runner
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/simpledrive
+      API_TOKEN: supersecret
+      STORAGE_BACKEND: db
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: blobs
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_REGION: us-east-1
+      LOCAL_DIR: /data/blobs
+      FTP_HOST: ftp
+      FTP_USER: ftpuser
+      FTP_PASS: ftppass
+      FTP_DIR: /home/ftpuser
+    ports:
+      - "8080:8080"
+    volumes:
+      - api_data:/data
+    command: >
+      sh -c "
+      cd /app/apps/api &&
+      npx --yes prisma@5.9.1 migrate deploy &&
+      node dist/server.js
+      "
+
+  ui:
+    build:
+      context: .
+      dockerfile: apps/ui/Dockerfile
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+      NEXT_PUBLIC_API_TOKEN: supersecret
+    ports:
+      - "3000:3000"
+
+  api-test:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: test
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/simpledrive
+      API_TOKEN: supersecret
+      STORAGE_BACKEND: db
+    command: >
+      sh -c "
+      cd /app/apps/api &&
+      pnpm exec prisma migrate deploy &&
+      pnpm test --run
+      "
+
+volumes:
+  postgres_data:
+  minio_data:
+  api_data:
+  ftp_data:

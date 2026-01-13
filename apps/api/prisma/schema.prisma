@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Blob {
+  id            String   @id
+  backend       String
+  storage_key   String
+  size_bytes    Int
+  checksum_sha256 String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([storage_key])
+}
+
+model BlobDataStore {
+  key         String   @id @db.Text
+  data        Bytes
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("BlobDataStore")
+}

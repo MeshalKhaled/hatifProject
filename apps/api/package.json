@@ -1,0 +1,25 @@
+{
+  "name": "@simple-drive/api",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@prisma/client": "5.9.1",
+    "basic-ftp": "^5.0.3",
+    "fastify": "^4.26.0",
+    "undici": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "prisma": "5.9.1",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.1"
+  }
+}
